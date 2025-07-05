@@ -1,0 +1,243 @@
+import time
+from functools import wraps
+
+class Message:
+    """消息协议"""
+    _state_types = {'Online', 'Offline', 'heartbeat', 'heartbeat_ack'}
+    _operation_types = {'register', 'login', 'user_list', 'registered_success', 'login_success', 'login_error'}
+    _chat_types = {'public', 'private'}
+    _file_types = {'file_request', 'file_accept', 'file_reject', 'file_cancel', 'file_error', 'file_progress', 'file_notify'}
+
+    def __init__(self, Messages=None, way=None, value=None):
+        self.way = way or ''
+        self.value = value or ''
+
+        if Messages is not None:
+            self._deserialize(Messages)
+
+    def _deserialize(self, raw_str):
+        """反序列化"""
+        raw_str = raw_str.strip()
+        if not raw_str:
+            return
+
+        parts = raw_str.split('\t', 1)
+        self.way = parts[0]
+
+        if len(parts) == 1:
+            self.value = ''
+            return
+
+        value_part = parts[1].strip()
+
+        if self.way == 'user_list':
+            if isinstance(value_part, str):
+                self.value = value_part.split(',') if value_part else []
+            elif isinstance(value_part, (list, tuple)):
+                self.value = value_part
+            else:
+                raise ValueError(f"无效的用户列表类型: {type(value_part)}")
+        elif self.way == 'private':
+            if '\t' in value_part:
+                sender, content = value_part.split('\t', 1)
+                self.value = (sender, content)
+            else:
+                self.value = ('', value_part)
+        elif self.is_file_message():
+            self.value = self._parse_file_value(value_part)
+        else:
+            self.value = value_part
+
+    def _parse_file_value(self, value_str):
+        """解析文件值"""
+        parsed = {}
+        parts = value_str.split('|')
+        for part in parts:
+            if '=' in part:
+                key, val = part.split('=', 1)
+                parsed[key.strip()] = val.strip()
+            elif ':' in part:
+                ip, port = part.split(':', 1)
+                parsed['ip'] = ip
+                parsed['port'] = port
+        return parsed
+
+    def serialize(self):
+        """序列化"""
+        if self.way == 'user_list':
+            if isinstance(self.value, (list, tuple)):
+                return f"{self.way}\t{','.join(self.value)}\n"
+            elif isinstance(self.value, str):
+                return f"{self.way}\t{self.value}\n"
+            else:
+                raise TypeError("user_list类型的value必须是列表或字符串")
+
+        if self.way == 'private':
+            if not isinstance(self.value, tuple) or len(self.value) != 2:
+                raise ValueError("私聊消息格式必须为(receiver, content)")
+            return f"{self.way}\t{self.value[0]}\t{self.value[1]}\n"
+
+        if self.is_file_message() and isinstance(self.value, dict):
+            value_str = '|'.join([f"{k}={v}" for k, v in self.value.items()])
+            return f"{self.way}\t{value_str}\n"
+
+        if self.value:
+            return f"{self.way}\t{self.value}\n"
+
+        return f"{self.way}\n"
+
+    def is_state_message(self):
+        return self.way in self._state_types
+
+    def is_operation_message(self):
+        return self.way in self._operation_types
+
+    def is_chat_message(self):
+        return self.way in self._chat_types
+
+    def is_file_message(self):
+        return self.way in self._file_types
+
+    @property
+    def sender(self):
+        if self.way == 'private' and isinstance(self.value, tuple):
+            return self.value[0]
+        if self.is_file_message() and isinstance(self.value, dict):
+            return self.value.get('sender', '')
+        return ''
+
+    @property
+    def content(self):
+        if self.way == 'private' and isinstance(self.value, tuple):
+            return self.value[1]
+        if isinstance(self.value, str):
+            return self.value.split('\t', 1)[1] if '\t' in self.value else self.value
+        return str(self.value)
+
+    @property
+    def timestamp(self):
+        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+class FileMessage(Message):
+    """文件传输消息"""
+    def __init__(self, msg_type, sender=None, receiver=None, filename=None, filesize=None, data=None, chunk_index=None, total_chunks=None, value=None):
+        if msg_type not in self._file_types:
+            raise ValueError(f"无效的文件消息类型: {msg_type}")
+
+        value_dict = {}
+        if sender:
+            value_dict['sender'] = sender
+        if receiver:
+            value_dict['receiver'] = receiver
+        if filename:
+            value_dict['filename'] = filename
+        if filesize is not None:
+            value_dict['size'] = str(filesize)
+        if data is not None:
+            value_dict['data'] = data.hex()
+        if chunk_index is not None:
+            value_dict['chunk'] = str(chunk_index)
+        if total_chunks is not None:
+            value_dict['total'] = str(total_chunks)
+
+        super().__init__(way=msg_type, value=value_dict)
+
+    @property
+    def filename(self):
+        return self.value.get('filename', '')
+
+    @property
+    def filesize(self):
+        try:
+            return int(self.value.get('size', '0'))
+        except ValueError:
+            return 0
+
+    @property
+    def chunk_index(self):
+        try:
+            return int(self.value.get('chunk', '0'))
+        except ValueError:
+            return 0
+
+    @property
+    def total_chunks(self):
+        try:
+            return int(self.value.get('total', '0'))
+        except ValueError:
+            return 0
+
+    @property
+    def data(self):
+        hex_data = self.value.get('data', '')
+        try:
+            return bytes.fromhex(hex_data)
+        except ValueError:
+            return b''
+
+    @classmethod
+    def create_request(cls, sender, receiver, filename, filesize, port):
+        return cls(
+            msg_type='file_request',
+            sender=sender,
+            receiver=receiver,
+            filename=filename,
+            filesize=filesize,
+            value={'port': str(port), 'size': str(filesize)}
+        )
+
+    @classmethod
+    def create_response(cls, msg_type, sender, receiver, filename):
+        return cls(msg_type, sender=sender, receiver=receiver, filename=filename)
+
+    @classmethod
+    def create_chunk(cls, filename, chunk_index, total_chunks, data):
+        return cls('file_data', filename=filename, chunk_index=chunk_index, total_chunks=total_chunks, data=data)
+
+    @classmethod
+    def create_port_notice(cls, port):
+        return cls('file_port', value={'port': str(port)})
+
+    @classmethod
+    def create_peer_info(cls, username, ip, port):
+        return cls('peer_info', value=f"{username}:{ip}:{port}")
+
+    @classmethod
+    def create_cancel(cls, filename, sender):
+        return cls('file_cancel', value={'filename': filename, 'sender': sender})
+
+class UserStateMessage(Message):
+    """用户状态消息"""
+    def __init__(self, Messages=None, way=None, value=None):
+        super().__init__(Messages, way, value)
+        if way and way not in {'Online', 'Offline'}:
+            raise ValueError("状态消息类型必须为 Online/Offline")
+
+    @property
+    def user(self):
+        return self.value.strip()  # 确保去除多余字符
+
+class OperationMessage(Message):
+    """系统操作消息"""
+    def __init__(self, Messages=None, way=None, value=None):
+        super().__init__(Messages, way, value)
+
+        if self.way == 'user_list' and isinstance(self.value, str):
+            self.value = self.value.split(',') if self.value else []
+
+    @property
+    def user_list(self):
+        if isinstance(self.value, list):
+            return self.value
+        return self.value.split(',') if self.value else []
+
+def validate_message_type(expected_type):
+    """类型验证装饰器"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.way != expected_type:
+                raise ValueError(f"消息类型必须为 {expected_type}，当前是 {self.way}")
+            return func(self, *args, **kwargs)
+        return wrapper
+    return decorator
