@@ -1,0 +1,1242 @@
+import hashlib
+import os
+import threading
+import time
+import tkinter
+import tkinter.messagebox
+import socket
+import sys
+import traceback
+from tkinter import ttk
+import tkinter.filedialog
+from Message import Message, UserStateMessage, OperationMessage
+
+class Client_GUI:
+    def __init__(self, window):
+        self.window = window
+        self.port = 9090
+        self.state = False
+        self.selectUser = None
+        self.var = tkinter.IntVar()
+        self.client_socket = None
+        self.running = False
+        self.heartbeat_interval = 30
+        self.file_transfer_queue = {}
+        self.message_buffer = ""
+        self.set_init_window()
+
+    def set_init_window(self):
+        """初始化客户端界面"""
+        self.window.title('聊天客户端')
+        self.window.geometry('800x600')
+        self.window.resizable(False, False)
+        self.window.protocol("WM_DELETE_WINDOW", self.window_closing)
+
+        # 登录区
+        login_frame = tkinter.Frame(self.window)
+        login_frame.pack(pady=10)
+
+        tkinter.Label(login_frame, text="用户名:").grid(row=0, column=0)
+        self.username_entry = tkinter.Entry(login_frame, width=15)
+        self.username_entry.grid(row=0, column=1, padx=5)
+
+        tkinter.Label(login_frame, text="密码:").grid(row=0, column=2)
+        self.password_entry = tkinter.Entry(login_frame, show="*", width=15)
+        self.password_entry.grid(row=0, column=3, padx=5)
+
+        tkinter.Label(login_frame, text="服务器:").grid(row=0, column=4)
+        self.server_entry = tkinter.Entry(login_frame, width=15)
+        self.server_entry.grid(row=0, column=5, padx=5)
+        self.server_entry.insert(0, "127.0.0.1")
+
+        tkinter.Button(login_frame, text="注册", command=self.registered).grid(row=0, column=6, padx=5)
+        tkinter.Button(login_frame, text="登录", command=self.login).grid(row=0, column=7)
+
+        # 主界面
+        main_frame = tkinter.PanedWindow(self.window)
+        main_frame.pack(fill=tkinter.BOTH, expand=1)
+
+        # 消息记录区
+        msg_frame = tkinter.LabelFrame(main_frame, text="消息记录")
+        self.message_text = tkinter.Text(msg_frame, state='disabled', wrap=tkinter.WORD)
+        scrollbar = tkinter.Scrollbar(msg_frame)
+        self.message_text.configure(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.message_text.yview)
+        scrollbar.pack(side=tkinter.RIGHT, fill=tkinter.Y)
+        self.message_text.pack(fill=tkinter.BOTH, expand=1)
+        main_frame.add(msg_frame)
+
+        # 在线用户区
+        user_frame = tkinter.LabelFrame(main_frame, text="在线用户", width=150)
+        self.user_tree = ttk.Treeview(user_frame, columns=('username',), show='headings')
+        self.user_tree.heading('username', text='用户名')
+        self.user_tree.pack(fill=tkinter.BOTH, expand=1)
+        self.user_tree.bind('<<TreeviewSelect>>', self.select_user)
+        self.user_tree.bind('<Double-1>', self.on_user_double_click)
+        main_frame.add(user_frame)
+
+        # 输入区
+        input_frame = tkinter.Frame(self.window)
+        input_frame.pack(fill=tkinter.X, pady=5)
+
+        self.private_check = tkinter.Checkbutton(input_frame, text="私聊", variable=self.var)
+        self.private_check.pack(side=tkinter.LEFT, padx=5)
+
+        self.private_label = tkinter.Label(input_frame, text="", fg="blue")
+        self.private_label.pack(side=tkinter.LEFT, padx=5)
+
+        self.message_entry = tkinter.Entry(input_frame, width=50, state='disabled')
+        self.message_entry.pack(side=tkinter.LEFT, padx=5)
+        self.message_entry.bind('<Return>', self.send_message)
+
+        tkinter.Button(input_frame, text="发送", command=self.send_message).pack(side=tkinter.LEFT, padx=5)
+        tkinter.Button(input_frame, text="发送文件", command=self.send_file).pack(side=tkinter.LEFT)
+
+        self.var.trace_add('write', self.update_private_state)
+
+    def update_user_list_from_server(self, users):
+        """更新用户列表"""
+        try:
+            current_users = {self.user_tree.item(item)['values'][0] for item in self.user_tree.get_children()}
+
+            if isinstance(users, str):
+                processed_users = set(filter(None, users.split(',')))
+            elif isinstance(users, (list, tuple)):
+                processed_users = set(filter(None, users))
+            else:
+                raise ValueError(f"无效的用户列表类型: {type(users)}")
+
+            for user in current_users - processed_users:
+                for item in self.user_tree.get_children():
+                    if self.user_tree.item(item)['values'][0] == user:
+                        self.user_tree.delete(item)
+
+            for user in processed_users - current_users:
+                self.user_tree.insert('', 'end', values=(user,))
+
+        except Exception as e:
+            print(f"[ERROR] 用户列表更新失败: {str(e)}")
+
+    def update_user_list(self, msg):
+        """更新用户列表"""
+        if msg.way == 'Online':
+            # 插入新用户前检查是否存在
+            current_users = {self.user_tree.item(item)['values'][0] for item in self.user_tree.get_children()}
+            if msg.value not in current_users:
+                self.user_tree.insert('', 'end', values=(msg.value,))
+        elif msg.way == 'Offline':
+            target_user = msg.value.strip()
+            # 直接删除目标用户，不依赖遍历
+            for item in self.user_tree.get_children():
+                if self.user_tree.item(item)['values'][0] == target_user:
+                    self.user_tree.delete(item)
+                    break  # 找到后立即退出循环
+
+    def registered(self):
+        """注册新用户"""
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+        if not self.validate_input(username, password):
+            return
+        threading.Thread(target=self._perform_registration, args=(username, password), daemon=True).start()
+
+    def _perform_registration(self, username, password):
+        """执行注册逻辑"""
+        try:
+            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client.settimeout(10)
+            client.connect((self.server_entry.get(), self.port))
+
+            hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+            msg = Message(way='register', value=f"{username}\t{hashed_pw}\n").serialize()
+            client.send(msg.encode())
+
+            response = client.recv(1024)
+            if not response:
+                raise ConnectionError("服务器未返回响应")
+
+            response_msg = Message(Messages=response.decode())
+            if response_msg.way == 'registered_success':
+                self.show_message_box("成功", "注册成功！")
+            else:
+                error = response_msg.value.split('\t', 1)[-1]
+                self.show_message_box("错误", error)
+        except Exception as e:
+            self.show_message_box("错误", f"注册失败: {str(e)}")
+        finally:
+            try:
+                client.close()
+            except:
+                pass
+
+    def login(self):
+        """用户登录"""
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+        if not self.validate_input(username, password):
+            return
+        threading.Thread(target=self._perform_login, args=(username, password), daemon=True).start()
+
+    def _perform_login(self, username, password):
+        """执行登录逻辑"""
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.settimeout(15)
+            self.client_socket.connect((self.server_entry.get(), self.port))
+
+            hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+            login_msg = Message(way='login', value=f"{username}\t{hashed_pw}\n").serialize()
+            self.client_socket.sendall(login_msg.encode())
+
+            buffer = ''
+            login_success = False
+            user_list_received = False
+
+            # 使用消息缓冲区处理粘包
+            while not (login_success and user_list_received):
+                data = self.client_socket.recv(1024)
+                if not data:
+                    raise ConnectionError("收到空响应")
+
+                buffer += data.decode()
+
+                # 处理完整消息
+                while '\n' in buffer:
+                    msg_str, buffer = buffer.split('\n', 1)
+                    msg_str = msg_str.strip()
+                    if not msg_str:
+                        continue
+
+                    msg = Message(Messages=msg_str)
+
+                    if msg.way == 'login_success':
+                        # 严格提取端口号
+                        try:
+                            value_clean = msg.value.replace('\n', '').split('\t')
+                            if len(value_clean) < 2:
+                                raise ValueError("响应格式错误")
+                            self.assigned_port = int(value_clean[1].strip())
+                            login_success = True
+                        except (IndexError, ValueError) as e:
+                            raise ValueError(f"端口号解析失败: {str(e)}")
+
+                    elif msg.way == 'user_list':
+                        if isinstance(msg.value, str):
+                            user_list = msg.value.split(',') if msg.value else []
+                        elif isinstance(msg.value, (list, tuple)):
+                            user_list = msg.value
+                        else:
+                            raise TypeError("无效的用户列表类型")
+
+                        self.update_user_list_from_server(user_list)
+                        user_list_received = True
+
+                    elif msg.way == 'login_error':
+                        error_msg = msg.value.split('\t', 1)[-1]
+                        self.show_message_box("错误", error_msg.strip())
+                        return
+
+            # 登录后续处理
+            self.state = True
+            self.running = True
+            self.toggle_controls(False)
+
+            threading.Thread(target=self.receive_messages, daemon=True).start()
+            threading.Thread(target=self.send_heartbeat, daemon=True).start()
+
+            self.show_message_box("成功", "登录成功！")
+
+        except socket.timeout:
+            error_msg = "连接超时，请检查服务器状态"
+            self.show_message_box("错误", error_msg)
+        except Exception as e:
+            error_msg = f"登录失败: {str(e)}"
+            self.show_message_box("错误", error_msg)
+        finally:
+            if not self.state and self.client_socket:
+                try:
+                    self.client_socket.close()
+                except:
+                    pass
+
+    def receive_messages(self):
+        """消息接收中枢"""
+        buffer = ''
+        while self.running and self.state:
+            try:
+                data = self.client_socket.recv(4096)
+                if not data:
+                    raise ConnectionResetError()
+
+                buffer += data.decode()
+
+                while '\n' in buffer:
+                    msg_str, buffer = buffer.split('\n', 1)
+                    msg_str = msg_str.strip()
+                    if not msg_str:
+                        continue
+                    self.process_message(msg_str.strip())
+
+            except socket.timeout:
+                continue
+            except (ConnectionResetError, BrokenPipeError):
+                self.handle_disconnect()
+                break
+            except Exception as e:
+                print(f"[ERROR] 消息处理异常: {str(e)}")
+                self.handle_disconnect()
+                break
+
+    def process_message(self, msg_str):
+        """处理消息"""
+        try:
+            msg = Message(Messages=msg_str)
+
+            if msg.way == 'heartbeat_ack':
+                return
+
+            if msg.way == 'user_list':
+                # 强制用服务器下发的列表覆盖本地
+                self.user_tree.delete(*self.user_tree.get_children())  # 清空当前列表
+                if isinstance(msg.value, (str, list, tuple)):
+                    users = msg.value.split(',') if isinstance(msg.value, str) else msg.value
+                    for user in users:
+                        self.user_tree.insert('', 'end', values=(user,))
+                return
+
+            if msg.is_state_message():
+                self.update_user_list(msg)
+                return
+
+            if msg.is_chat_message():
+                timestamp = get_time()
+                sender = msg.sender if msg.sender else "未知用户"
+
+                if msg.way == 'private':
+                    content = f"[{msg.content}"
+                else:
+                    content = f"[{msg.content}"
+
+                self.window.after(0, lambda: self.show_message(content))
+                return
+
+            if msg.is_file_message():
+                if msg.way == 'file_request':
+                    self.window.after(0, lambda: self.handle_file_request(msg))
+                    return
+
+                elif msg.way == 'file_accept':
+                    transfer_id = msg.value.get('transfer_id')
+                    if transfer_id in self.file_transfer_queue:
+                        threading.Thread(target=self._start_file_transfer, args=(msg,), daemon=True).start()
+                    else:
+                        print(f"[WARNING] 未知的传输ID: {transfer_id}")
+
+                elif msg.way == 'file_progress':
+                    transfer_id = msg.value.get('transfer_id')
+                    progress = msg.value.get('progress', 0)
+                    speed = msg.value.get('speed', 0)
+                    print(f"[PROGRESS] {transfer_id} 进度: {progress}% 速度: {speed}KB/s")
+
+                    if transfer_id in self.file_transfer_queue:
+                        self.window.after(0, self._update_progress, transfer_id, progress, speed)
+
+                elif msg.way == 'file_reject':
+                    transfer_id = msg.value.get('transfer_id')
+                    if transfer_id in self.file_transfer_queue:
+                        self.window.after(0, self.show_message_box, "提示", "对方拒绝了文件传输")
+                        self._cleanup_transfer(transfer_id)
+                    else:
+                        print(f"[WARNING] 无效的传输ID: {transfer_id}")
+
+                elif msg.way == 'file_cancel':
+                    transfer_id = msg.value.get('transfer_id')
+                    if transfer_id in self.file_transfer_queue:
+                        self.window.after(0, self.show_message_box, "提示", "对方取消了文件传输")
+                        self._cleanup_transfer(transfer_id)
+
+                elif msg.way == 'file_error':
+                    transfer_id = msg.value.get('transfer_id')
+                    error = msg.value.get('error', '未知错误')
+                    self.window.after(0, self.show_message_box, "错误", f"传输失败: {error}")
+                    self._cleanup_transfer(transfer_id)
+
+                elif msg.way == 'file_notify':
+                    sender = msg.value.get('sender')
+                    receiver = msg.value.get('receiver')
+                    filename = msg.value.get('filename')
+                    self.window.after(0, self.show_message, f"[文件传输通知] {sender} 正在向 {receiver} 传输文件: {filename}")
+
+                return
+
+        except Exception as e:
+            error_msg = f"消息处理异常: {str(e)}\n原始数据: {msg_str[:100]}..."
+            print(f"[CRITICAL] {error_msg}")
+            self.window.after(0, self.show_message_box, "严重错误", error_msg)
+
+    def handle_file_request(self, msg):
+        """处理文件请求（添加确认弹窗）"""
+        try:
+            if not msg.value:
+                print("[ERROR] 无效的文件请求消息")
+                return
+
+            # 解析请求参数
+            filename = msg.value.get('filename', '未知文件')
+            filesize = int(msg.value.get('size', 0))
+            sender = msg.value.get('sender', '未知用户')
+            transfer_id = msg.value.get('transfer_id', str(time.time()))
+            ip = msg.value.get('ip')
+            port = int(msg.value.get('port'))
+
+            # 创建确认弹窗
+            dialog = tkinter.Toplevel(self.window)
+            dialog.title("文件传输请求")
+            dialog.geometry("400x200")
+
+            # 显示文件信息
+            info_frame = tkinter.Frame(dialog, padx=10, pady=10)
+            info_frame.pack(fill=tkinter.BOTH, expand=True)
+
+            tkinter.Label(info_frame,
+                          text=f"{sender} 向您发送文件",
+                          font=("微软雅黑", 12)).pack(pady=5)
+
+            file_info = f"""文件名: {filename}
+    文件大小: {filesize // 1024} KB
+    是否接收？"""
+            tkinter.Label(info_frame,
+                          text=file_info,
+                          justify=tkinter.LEFT).pack(pady=10)
+
+            # 按钮区域
+            btn_frame = tkinter.Frame(dialog)
+            btn_frame.pack(pady=10)
+
+            # 接收按钮
+            accept_btn = tkinter.Button(
+                btn_frame,
+                text="接收",
+                width=10,
+                command=lambda: self._on_accept(dialog, transfer_id, ip, port, msg.value)
+            )
+            accept_btn.pack(side=tkinter.LEFT, padx=20)
+
+            # 拒绝按钮
+            reject_btn = tkinter.Button(
+                btn_frame,
+                text="拒绝",
+                width=10,
+                command=lambda: self._on_reject(dialog, transfer_id, sender)
+            )
+            reject_btn.pack(side=tkinter.RIGHT, padx=20)
+
+            # 窗口关闭处理
+            dialog.protocol("WM_DELETE_WINDOW",
+                            lambda: self._on_dialog_close(dialog, transfer_id, sender))
+
+        except Exception as e:
+            self.show_message_box("错误", f"文件请求处理失败: {str(e)}")
+
+    def _show_file_dialog(self, sender, filename, filesize, transfer_id):
+        """显示文件接收确认对话框"""
+        dialog = tkinter.Toplevel(self.window)
+        dialog.title("文件传输请求")
+
+        msg = f"{sender} 向您发送文件\n\n文件名: {filename}\n大小: {filesize // 1024} KB"
+        tkinter.Label(dialog, text=msg, padx=20, pady=10).pack()
+
+        btn_frame = tkinter.Frame(dialog)
+        btn_frame.pack(pady=10)
+
+        tkinter.Button(btn_frame, text="接收", command=lambda: self._on_accept(dialog, transfer_id, filename)).pack(side=tkinter.LEFT, padx=20)
+        tkinter.Button(btn_frame, text="拒绝", command=lambda: self._on_reject(dialog, transfer_id, sender)).pack(side=tkinter.RIGHT, padx=20)
+
+        dialog.protocol("WM_DELETE_WINDOW", lambda: self._on_dialog_close(dialog, transfer_id))
+
+    def _on_accept(self, dialog, transfer_id, ip, port, file_info):
+        """用户同意接收"""
+        dialog.destroy()
+
+        # 弹出保存文件对话框
+        save_path = tkinter.filedialog.asksaveasfilename(
+            title="保存文件",
+            initialfile=file_info['filename']
+        )
+
+        if not save_path:
+            self._send_reject(transfer_id, file_info['sender'])
+            return
+
+        # 启动接收线程
+        threading.Thread(
+            target=self._start_receiving,
+            args=(ip, port, transfer_id, file_info, save_path),
+            daemon=True
+        ).start()
+
+    def _on_reject(self, dialog, transfer_id, sender):
+        """用户拒绝接收"""
+        dialog.destroy()
+        self._send_reject(transfer_id, sender)
+
+    def _on_dialog_close(self, dialog, transfer_id, sender):
+        """直接关闭窗口视为拒绝"""
+        dialog.destroy()
+        self._send_reject(transfer_id, sender)
+
+    def _send_reject(self, transfer_id, sender):
+        """发送拒绝响应"""
+        reject_msg = Message(
+            way='file_reject',
+            value={
+                'transfer_id': transfer_id,
+                'sender': self.username_entry.get().strip(),
+                'receiver': sender
+            }
+        ).serialize()
+
+        try:
+            self.client_socket.send(reject_msg.encode())
+        except Exception as e:
+            print(f"[ERROR] 拒绝消息发送失败: {str(e)}")
+
+    def _send_cancel(self, transfer_id):
+        """发送取消请求"""
+        response = Message(way='file_cancel', value={'transfer_id': transfer_id}).serialize()
+        self.client_socket.send(response.encode())
+
+    def _start_receiving(self, ip, port, transfer_id, file_info, save_path):
+        """完整的文件接收流程"""
+        try:
+            # =============== 1. 初始化传输信息 ===============
+            filename = file_info['filename']
+            filesize = int(file_info['size'])
+
+            # =============== 2. 创建进度窗口 ===============
+            self.window.after(0, lambda: self._create_transfer_ui(
+                transfer_id=transfer_id,
+                filename=filename,
+                filesize=filesize,
+                is_sender=False
+            ))
+
+            # =============== 3. 建立P2P连接 ===============
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(60)  # 设置超时时间
+
+            try:
+                sock.connect((ip, port))
+            except Exception as e:
+                raise ConnectionError(f"无法连接到发送方: {str(e)}")
+
+            # =============== 4. 接收文件头 ===============
+            header = b''
+            while True:
+                chunk = sock.recv(1024)
+                if not chunk:
+                    raise ConnectionError("连接中断")
+                header += chunk
+                if b':' in header:  # 检查是否收到完整头部
+                    break
+
+            # 解析头部格式：filename:filesize:transfer_id
+            try:
+                header_str = header.decode().strip()
+                recv_filename, recv_size, recv_transfer_id = header_str.split(':', 2)
+                recv_size = int(recv_size)
+            except ValueError:
+                raise ValueError("无效的文件头格式")
+
+            # =============== 5. 验证传输ID ===============
+            if recv_transfer_id != transfer_id:
+                raise ValueError(f"传输ID不匹配\n服务器: {transfer_id}\n收到: {recv_transfer_id}")
+
+            # =============== 6. 发送准备确认 ===============
+            sock.sendall(b'READY')  # 确认可以开始传输
+
+            # =============== 7. 准备写入文件 ===============
+            received = 0
+            start_time = time.time()
+            last_update = start_time
+
+            try:
+                with open(save_path, 'wb') as f:
+                    # =============== 8. 接收数据循环 ===============
+                    while received < recv_size:
+                        # 检查用户是否取消
+                        if transfer_id in self.file_transfer_queue:
+                            if self.file_transfer_queue[transfer_id].get('cancel_flag', False):
+                                raise InterruptedError("传输已被用户取消")
+
+                        # 计算本次接收量（不超过剩余量）
+                        remaining = recv_size - received
+                        chunk_size = min(4096, remaining)
+
+                        # 接收数据
+                        chunk = sock.recv(chunk_size)
+                        if not chunk:
+                            raise ConnectionError("连接意外中断")
+
+                        # 写入文件
+                        f.write(chunk)
+                        received += len(chunk)
+
+                        # =============== 9. 更新进度 ===============
+                        current_time = time.time()
+                        if current_time - last_update > 0.2:  # 每200ms更新一次
+                            progress = (received / recv_size) * 100
+                            speed = received / (current_time - start_time)  # bytes/sec
+
+                            # 安全更新GUI
+                            self.window.after(0, lambda:
+                            self._update_progress(
+                                transfer_id,
+                                progress,
+                                speed
+                            ))
+                            last_update = current_time
+
+                    # =============== 10. 完成处理 ===============
+                    self.window.after(0, lambda:
+                    self.show_message_box("成功", f"{filename} 接收完成"))
+                    self._update_progress(transfer_id, 100, 0)
+
+            except Exception as e:
+                # 删除不完整文件
+                if os.path.exists(save_path):
+                    try:
+                        os.remove(save_path)
+                    except:
+                        pass
+                raise
+
+        except Exception as e:
+            error_msg = f"{filename} 接收失败: {str(e)}"
+            self.window.after(0, lambda:
+            self._show_transfer_error(transfer_id, error_msg))
+        finally:
+            # =============== 11. 资源清理 ===============
+            try:
+                sock.close()
+            except:
+                pass
+            self._cleanup_transfer(transfer_id)
+            # 移除临时文件（如果有）
+            temp_path = f"{save_path}.tmp"
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    def send_message(self, event=None):
+        """发送消息"""
+        content = self.message_entry.get().strip()
+        if not content:
+            return
+
+        if self.var.get() == 1:
+            if not self.selectUser:
+                self.show_message_box("错误", "请先选择私聊对象")
+                return
+
+        try:
+            if self.var.get() == 1:
+                msg = Message(way='private', value=(self.selectUser, content)).serialize()
+            else:
+                msg = Message(way='public', value=content).serialize()
+
+            self.client_socket.send(msg.encode())
+            self.message_entry.delete(0, tkinter.END)
+        except Exception as e:
+            self.show_message_box("错误", f"消息发送失败: {str(e)}")
+
+    def send_file(self):
+        """发送文件"""
+        if not self.selectUser and self.var.get() == 1:
+            self.show_message_box("提示", "请先选择私聊对象")
+            return
+
+        filepath = tkinter.filedialog.askopenfilename()
+        if not filepath:
+            return
+
+        transfer_id = f"{time.time()}_{os.getpid()}"
+        filename = os.path.basename(filepath)
+        filesize = os.path.getsize(filepath)
+
+        print(f"[DEBUG] 开始传输，ID: {transfer_id}")
+
+        # 启动监听
+        listen_port = self.assigned_port + 1
+        threading.Thread(
+            target=self.start_file_server,
+            args=(listen_port, transfer_id, filename, filesize, filepath),
+            daemon=True
+        ).start()
+
+        msg = Message(way='file_request', value={
+            'receiver': self.selectUser,
+            'filename': filename,
+            'size': str(filesize),
+            'transfer_id': transfer_id,
+            'sender': self.username_entry.get().strip(),
+            'port': listen_port  # 添加端口信息
+        }).serialize()
+        self.client_socket.send(msg.encode())
+
+    def start_file_server(self, port, transfer_id, filename, filesize, filepath):
+        """启动文件传输服务器（完整实现）"""
+        try:
+            # ==================== 1. 参数验证 ====================
+            if not isinstance(filesize, int) or filesize <= 0:
+                raise ValueError("无效的文件大小参数")
+
+            # ==================== 2. 初始化传输记录 ====================
+            self.file_transfer_queue[transfer_id] = {
+                'filename': filename,
+                'filesize': filesize,  # 保持为整数
+                'progress': None,  # 占位符，等待_create_transfer_ui初始化
+                'cancel_flag': False,
+                'conn': None  # 用于存储连接对象
+            }
+
+            # ==================== 3. 创建Socket服务器 ====================
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_socket.bind(('0.0.0.0', port))
+            server_socket.listen(1)
+
+            # ==================== 4. 异步显示等待连接提示 ====================
+            # self.window.after(0, lambda: self._show_connection_waiting(transfer_id))
+
+            # ==================== 5. 接受连接 ====================
+            conn, addr = server_socket.accept()
+            self.file_transfer_queue[transfer_id]['conn'] = conn
+
+            # ==================== 6. 创建进度界面 ====================
+            self.window.after(0, lambda: self._create_transfer_ui(
+                transfer_id=transfer_id,
+                filename=filename,
+                filesize=filesize,
+                is_sender=True
+            ))
+
+            # ==================== 7. 发送文件头 ====================
+            header = f"{filename}:{filesize}:{transfer_id}".encode()
+            conn.sendall(header)
+
+            # ==================== 8. 等待接收方准备确认 ====================
+            ack = conn.recv(1024)
+            if ack != b'READY':
+                raise ConnectionError("接收方未准备就绪")
+
+            # ==================== 9. 开始传输数据 ====================
+            chunk_size = 4096
+            total_sent = 0
+            start_time = time.time()
+            last_update = start_time
+
+            with open(filepath, 'rb') as f:
+                while total_sent < filesize and not self.file_transfer_queue[transfer_id]['cancel_flag']:
+                    # 读取并发送数据块
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+
+                    conn.sendall(chunk)
+                    total_sent += len(chunk)
+
+                    # 更新进度（每200ms更新一次）
+                    current_time = time.time()
+                    if current_time - last_update > 0.2:
+                        progress = (total_sent / filesize) * 100
+                        speed = total_sent / (current_time - start_time)
+                        self._update_progress(transfer_id, progress, speed)
+                        last_update = current_time
+
+            # ==================== 10. 传输完成处理 ====================
+            if total_sent == filesize:
+                self._update_progress(transfer_id, 100, 0)
+                self.show_message_box("成功", f"{filename} 发送完成")
+            else:
+                self._show_transfer_error(transfer_id, "传输被用户取消")
+
+        except Exception as e:
+            error_msg = f"{filename} 传输失败: {str(e)}"
+            self._show_transfer_error(transfer_id, error_msg)
+        finally:
+            # ==================== 11. 资源清理 ====================
+            try:
+                if 'conn' in self.file_transfer_queue[transfer_id]:
+                    self.file_transfer_queue[transfer_id]['conn'].close()
+                server_socket.close()
+            except:
+                pass
+            self._cleanup_transfer(transfer_id)
+
+    def _show_connection_waiting(self, transfer_id):
+        """显示等待连接提示"""
+        win = tkinter.Toplevel(self.window)
+        win.title("等待连接")
+
+        frame = tkinter.Frame(win, padx=20, pady=10)
+        frame.pack()
+
+        tkinter.Label(frame, text="等待接收方连接...").pack()
+        tkinter.Label(frame, text="请勿关闭此窗口").pack(pady=5)
+
+        # 记录临时窗口
+        self.file_transfer_queue[transfer_id]['waiting_window'] = win
+
+    def _start_file_transfer(self, msg):
+        """处理文件传输"""
+        transfer_id = msg.value.get('transfer_id')
+        if transfer_id not in self.file_transfer_queue:
+            return
+
+        file_info = self.file_transfer_queue[transfer_id]
+        filepath = file_info.get('filepath')
+        filename = os.path.basename(filepath)
+        filesize = file_info.get('filesize', os.path.getsize(filepath))  # 确保获取文件大小
+
+        file_info['filesize'] = filesize  # 确保文件大小被正确设置
+
+        ip = msg.value.get('ip')
+        port = int(msg.value.get('port'))
+        chunk_size = 4096
+        update_interval = 0.2
+        last_update_time = time.time()
+        start_time = time.time()
+        total_sent = 0
+        cancel_flag = False
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(30)
+            sock.connect((ip, port))
+
+            header = f"{filename}:{filesize}:{transfer_id}"
+            sock.send(header.encode())
+
+            ack = sock.recv(1024)
+            if ack != b'READY':
+                raise ConnectionError("接收方未准备就绪")
+
+            with open(filepath, 'rb') as f:
+                while total_sent < filesize and not cancel_flag:
+                    if transfer_id in self.file_transfer_queue:
+                        cancel_flag = self.file_transfer_queue[transfer_id].get('cancel_flag', False)
+                    else:
+                        break
+
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+
+                    sock.sendall(chunk)
+                    total_sent += len(chunk)
+
+                    current_time = time.time()
+                    if current_time - last_update_time >= update_interval:
+                        elapsed = current_time - start_time
+                        progress = (total_sent / filesize) * 100 if filesize > 0 else 0
+                        speed = total_sent / elapsed if elapsed > 0 else 0
+
+                        # 更新进度条和速度
+                        self.window.after(0, self._update_progress, transfer_id, progress, speed)
+
+                        # 发送进度更新消息
+                        progress_msg = Message(
+                            way='file_progress',
+                            value={
+                                'transfer_id': transfer_id,
+                                'progress': progress,
+                                'speed': speed
+                            }
+                        ).serialize()
+                        self.client_socket.send(progress_msg.encode())
+
+                        last_update_time = current_time
+
+            if total_sent == filesize:
+                self.window.after(0, self.show_message_box, "成功", f"{filename} 发送成功")
+            else:
+                self.window.after(0, self.show_message_box, "警告", "传输未完成")
+
+        except socket.timeout:
+            error_msg = f"传输超时：{filename}"
+            self.window.after(0, self._show_transfer_error, transfer_id, error_msg)
+        except Exception as e:
+            error_msg = f"传输失败：{str(e)}"
+            self.window.after(0, self._show_transfer_error, transfer_id, error_msg)
+        finally:
+            try:
+                sock.close()
+            except:
+                pass
+            self._cleanup_transfer(transfer_id)
+            self.window.after(0, self._update_progress, transfer_id, 100, 0)
+
+    def connect_and_receive(self, ip, port, file_info):
+        """接收文件（完整实现）"""
+        transfer_id = file_info.get('transfer_id')
+        filename = file_info.get('filename')
+        filesize = int(file_info.get('size'))
+
+        try:
+            # 创建进度窗口
+            self.window.after(0, lambda: self._create_transfer_ui(transfer_id, filename, filesize, is_sender=False))
+
+            # 连接发送方
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(30)
+            sock.connect((ip, port))
+
+            # 接收文件头
+            header = sock.recv(1024).decode()
+            recv_filename, recv_filesize, recv_id = header.split(':', 2)
+
+            # 验证传输ID
+            if recv_id != transfer_id:
+                raise ValueError("传输ID不匹配")
+
+            # 准备接收
+            sock.send(b'READY')
+
+            # 创建文件
+            save_path = tkinter.filedialog.asksaveasfilename(
+                initialfile=filename,
+                title=f"保存 {filename}"
+            )
+            if not save_path:
+                raise ValueError("用户取消保存")
+
+            # 开始接收
+            received = 0
+            start_time = time.time()
+            last_update = time.time()
+
+            with open(save_path, 'wb') as f:
+                while received < filesize:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+
+                    f.write(chunk)
+                    received += len(chunk)
+
+                    # 每200ms更新进度
+                    if time.time() - last_update > 0.2:
+                        progress = received / filesize * 100
+                        speed = received / (time.time() - start_time)
+                        self._update_progress(transfer_id, progress, speed)
+                        last_update = time.time()
+
+            # 传输完成
+            self._update_progress(transfer_id, 100, 0)
+            self.show_message_box("成功", f"{filename} 接收完成")
+
+        except Exception as e:
+            self._show_transfer_error(transfer_id, str(e))
+        finally:
+            try:
+                sock.close()
+            except:
+                pass
+            self._cleanup_transfer(transfer_id)
+
+    def _create_transfer_ui(self, transfer_id, filename, filesize, is_sender):
+        """创建传输界面（完整修复版）
+
+        参数:
+            transfer_id (str): 传输唯一标识
+            filename (str): 文件名
+            filesize (int): 文件大小（字节）
+            is_sender (bool): 是否为发送方
+        """
+        # ============= 1. 创建窗口 =============
+        win = tkinter.Toplevel(self.window)
+        win.title(f"{'发送' if is_sender else '接收'} {filename}")
+        win.geometry("400x180")
+
+        # ============= 2. 主内容框架 =============
+        frame = tkinter.Frame(win, padx=15, pady=10)
+        frame.pack(fill=tkinter.BOTH, expand=True)
+
+        # ============= 3. 进度条组件 =============
+        progress = ttk.Progressbar(
+            frame,
+            orient="horizontal",
+            length=350,
+            mode="determinate"
+        )
+        progress.pack(pady=5)
+
+        # ============= 4. 文件信息标签 =============
+        info_label = tkinter.Label(
+            frame,
+            text=f"文件名: {filename}\n文件大小: {filesize // 1024} KB",
+            justify=tkinter.LEFT
+        )
+        info_label.pack(anchor=tkinter.W)
+
+        # ============= 5. 速度显示标签 =============
+        speed_label = tkinter.Label(
+            frame,
+            text="速度: 等待数据传输...",
+            fg="#666666"
+        )
+        speed_label.pack(pady=3)
+
+        # ============= 6. 取消按钮 =============
+        cancel_btn = tkinter.Button(
+            frame,
+            text="取消传输",
+            command=lambda: self._cancel_transfer(transfer_id),
+            state=tkinter.NORMAL
+        )
+        cancel_btn.pack(pady=5)
+
+        # ============= 7. 绑定窗口关闭事件 =============
+        win.protocol("WM_DELETE_WINDOW",
+                     lambda: self._cleanup_transfer(transfer_id))
+
+        # ============= 8. 关键修复点：正确绑定进度条 =============
+        # 确保传输记录存在
+        if transfer_id not in self.file_transfer_queue:
+            self.file_transfer_queue[transfer_id] = {}
+
+        # 更新传输记录（包含进度条对象）
+        self.file_transfer_queue[transfer_id].update({
+            "window": win,  # 窗口对象
+            "progress": progress,  # ✅ 进度条对象（关键修复）
+            "speed_label": speed_label,
+            "filename": filename,
+            "filesize": filesize,  # 整型文件大小
+            "start_time": time.time(),
+            "cancel_flag": False,  # 取消标志
+            "conn": None  # 连接对象（用于后续关闭）
+        })
+
+        # ============= 9. 界面渲染优化 =============
+        win.update_idletasks()  # 强制立即渲染界面
+
+    def _show_transfer_error(self, transfer_id, error_msg):
+        """显示传输错误"""
+        if transfer_id in self.file_transfer_queue:
+            file_info = self.file_transfer_queue[transfer_id]
+            tkinter.messagebox.showerror("传输错误", f"{file_info.get('filename', '未知文件')} 传输失败\n原因：{error_msg}")
+
+    def _update_progress(self, transfer_id, progress_value, speed):
+        """更新传输进度（完整修复版）
+
+        参数:
+            transfer_id (str): 传输唯一标识
+            progress_value (float): 进度百分比 (0-100)
+            speed (float): 传输速度（KB/s）
+        """
+        # 1. 检查传输ID有效性
+        if transfer_id not in self.file_transfer_queue:
+            print(f"[WARNING] 未知的传输ID: {transfer_id}")
+            return
+
+        # 2. 获取传输信息
+        file_info = self.file_transfer_queue[transfer_id]
+
+        # 3. 严格的类型检查
+        if not isinstance(file_info.get('progress'), ttk.Progressbar):
+            # 严重错误处理
+            error_msg = (
+                f"传输 {file_info.get('filename', '未知文件')} 进度更新失败 | "
+                f"progress字段类型错误: {type(file_info.get('progress'))} | "
+                f"期望类型: ttk.Progressbar"
+            )
+            print(f"[CRITICAL] {error_msg}")
+            self._show_transfer_error(transfer_id, "界面初始化失败")
+            self._cleanup_transfer(transfer_id)
+            return
+
+        # 4. 安全更新进度条
+        try:
+            # 限制进度值范围
+            progress_value = max(0, min(100, float(progress_value)))
+
+            # 线程安全操作（通过after方法在主线程更新）
+            self.window.after(0, lambda:
+            file_info['progress'].configure(value=progress_value)
+                              )
+        except ValueError as e:
+            print(f"[ERROR] 无效的进度值: {progress_value} | 错误: {str(e)}")
+            return
+
+        # 5. 更新速度显示
+        speed_text = f"速度: {speed:.1f} KB/s" if speed > 0 else "等待连接..."
+        self.window.after(0, lambda:
+        file_info['speed_label'].config(text=speed_text)
+                          )
+
+        # 6. 自动关闭完成传输
+        if progress_value >= 99.9:  # 避免浮点精度问题
+            self.window.after(2000, lambda:
+            self._cleanup_transfer(transfer_id)
+                              )
+
+    def _cleanup_transfer(self, transfer_id):
+        """清理传输记录（安全版本）"""
+        if transfer_id in self.file_transfer_queue:
+            file_info = self.file_transfer_queue.pop(transfer_id)
+            try:
+                file_info['window'].destroy()  # 销毁窗口
+                if file_info.get('conn'):  # 关闭连接
+                    file_info['conn'].close()
+            except:
+                pass
+
+    def create_progress_window(self, filename):
+        """创建进度窗口"""
+        win = tkinter.Toplevel(self.window)
+        win.title(f"传输中: {filename}")
+        win.geometry("300x100")
+
+        frame = tkinter.Frame(win)
+        frame.pack(pady=10)
+
+        progress = ttk.Progressbar(frame, orient="horizontal", length=250, mode="determinate")
+        progress.pack()
+
+        speed_label = tkinter.Label(frame, text="速度: 0 KB/s")
+        speed_label.pack(pady=5)
+
+        return {'window': win, 'progress': progress, 'speed_label': speed_label}
+
+    def on_user_double_click(self, event):
+        """双击用户处理"""
+        self.select_user(event)
+        if self.selectUser:
+            self.message_entry.focus()
+            self.var.set(1)
+            self.show_message_box("提示", f"已选择与 {self.selectUser} 私聊")
+
+    def select_user(self, event=None):
+        """选择聊天对象"""
+        try:
+            selected_item = self.user_tree.selection()[0]
+            self.selectUser = self.user_tree.item(selected_item)['values'][0]
+            self.private_label.config(text=f"私聊对象: {self.selectUser}")
+            self.var.set(1)
+        except:
+            self.selectUser = None
+            self.private_label.config(text="")
+            self.var.set(0)
+
+    def update_private_state(self, *args):
+        """更新私聊状态"""
+        if self.var.get() == 1:
+            if not self.selectUser:
+                self.show_message_box("提示", "请双击选择私聊对象")
+                self.var.set(0)
+        else:
+            self.selectUser = None
+            self.private_label.config(text="")
+
+    def handle_disconnect(self):
+        """处理断开连接"""
+        self.running = False
+        self.state = False
+        if self.client_socket:
+            try:
+                self.client_socket.close()
+            except:
+                pass
+        self.toggle_controls(True)
+        self.show_message_box("错误", "连接已断开")
+        self.user_tree.delete(*self.user_tree.get_children())
+
+    def toggle_controls(self, state):
+        """切换控件状态"""
+        login_widgets = [
+            self.username_entry,
+            self.password_entry,
+            self.server_entry
+        ]
+
+        for widget in login_widgets:
+            widget.config(state='normal' if state else 'disabled')
+
+        self.message_entry.config(state='normal' if self.state else 'disabled')
+
+    def validate_input(self, username, password):
+        """验证输入有效性"""
+        if not username or not password:
+            self.show_message_box("错误", "用户名和密码不能为空")
+            return False
+        if '\t' in username or '\t' in password:
+            self.show_message_box("错误", "用户名或密码包含非法字符（制表符）")
+            return False
+        if len(username) < 3 or len(username) > 20:
+            self.show_message_box("错误", "用户名长度需在3-20个字符之间")
+            return False
+        return True
+
+    def send_heartbeat(self):
+        """发送心跳包"""
+        while self.running and self.state:
+            try:
+                heartbeat_msg = Message(way='heartbeat', value='ping\n').serialize()
+                self.client_socket.send(heartbeat_msg.encode())
+                time.sleep(self.heartbeat_interval)
+            except (ConnectionResetError, BrokenPipeError):
+                self.handle_disconnect()
+                break
+            except Exception as e:
+                print(f"[心跳异常] {str(e)}")
+                time.sleep(5)
+
+    def show_message(self, content):
+        """显示消息内容"""
+        self.message_text.config(state='normal')
+        self.message_text.insert(tkinter.END, content + '\n')
+        self.message_text.see(tkinter.END)
+        self.message_text.config(state='disabled')
+
+    def show_message_box(self, title, message):
+        """显示消息对话框"""
+        self.window.after(0, lambda: tkinter.messagebox.showinfo(title, message) if title == "成功" else tkinter.messagebox.showerror(title, message))
+
+    def window_closing(self):
+        """关闭窗口处理"""
+        self.running = False
+        if self.client_socket:
+            try:
+                self.client_socket.close()
+            except:
+                pass
+        sys.exit(0)
+
+    def _cancel_transfer(self, transfer_id):
+        """取消文件传输"""
+        if transfer_id in self.file_transfer_queue:
+            # 标记传输为取消状态
+            self.file_transfer_queue[transfer_id]['cancel_flag'] = True
+
+            # 发送取消消息到服务器（如果需要）
+            cancel_msg = Message(
+                way='file_cancel',
+                value={'transfer_id': transfer_id}
+            ).serialize()
+            try:
+                self.client_socket.send(cancel_msg.encode())
+            except Exception as e:
+                print(f"[ERROR] 取消消息发送失败: {str(e)}")
+
+            # 清理传输资源
+            self._cleanup_transfer(transfer_id)
+            self.show_message_box("提示", "传输已取消")
+
+def get_time():
+    """获取格式化时间"""
+    return time.strftime("%H:%M:%S", time.localtime())
+
+if __name__ == "__main__":
+    root = tkinter.Tk()
+    client = Client_GUI(root)
+    root.mainloop()
