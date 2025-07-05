@@ -1,0 +1,321 @@
+import tkinter as tk
+from tkinter import ttk, scrolledtext
+from scapy.all import *
+from scapy.layers.l2 import Ether, ARP
+from scapy.layers.inet import IP, TCP, UDP, ICMP
+import threading
+import time
+import re
+
+
+class ProtocolSender:
+    def __init__(self, master):
+        self.master = master
+        master.title("协议发送工具 v7.0")
+        self.sending = False
+        # 用于统计每种协议的发送数量
+        self.send_count = {
+            "IP": 0,
+            "TCP": 0,
+            "UDP": 0,
+            "ICMP": 0,
+            "ARP": 0,
+            "MAC": 0
+        }
+
+        # 协议选择区
+        control_frame = ttk.Frame(master)
+        control_frame.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+
+        ttk.Label(control_frame, text="协议类型:").grid(row=0, column=0)
+        self.protocol_var = tk.StringVar(value="IP")
+        self.protocol_menu = ttk.Combobox(
+            control_frame,
+            textvariable=self.protocol_var,
+            values=["IP", "TCP", "UDP", "ICMP", "ARP", "MAC"],
+            width=8
+        )
+        self.protocol_menu.grid(row=0, column=1, padx=5)
+        self.protocol_menu.bind("<<ComboboxSelected>>", self.update_fields)
+
+        # 参数输入区
+        self.field_frame = ttk.LabelFrame(master, text="协议参数")
+        self.field_frame.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+
+        # 发送控制区
+        send_control = ttk.Frame(master)
+        send_control.grid(row=2, column=0, padx=10, pady=5)
+
+        ttk.Label(send_control, text="发送间隔(s):").pack(side="left")
+        self.interval_entry = ttk.Entry(send_control, width=6)
+        self.interval_entry.insert(0, "1")
+        self.interval_entry.pack(side="left", padx=5)
+
+        self.send_btn = ttk.Button(
+            send_control,
+            text="开始发送",
+            command=self.toggle_sending,
+            width=10
+        )
+        self.send_btn.pack(side="left")
+
+        # 新增：清除按钮
+        self.clear_btn = ttk.Button(
+            send_control,
+            text="一键清除",
+            command=self.clear_all,
+            width=10
+        )
+        self.clear_btn.pack(side="left", padx=5)
+
+        # 显示统计信息的区域
+        self.stats_area = ttk.Label(master, text="")
+        self.stats_area.grid(row=4, column=0, padx=10, pady=5)
+
+        # 日志显示区
+        self.log_area = scrolledtext.ScrolledText(
+            master,
+            width=60,
+            height=15,
+            wrap=tk.WORD
+        )
+        self.log_area.grid(row=3, column=0, padx=10, pady=5)
+        self.log_area.tag_config("error", foreground="red")
+        self.log_area.tag_config("success", foreground="green")
+
+        self.update_fields()
+
+    # ==================== 核心方法 ====================
+    def validate_mac(self, mac):
+        return re.match(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$", mac)
+
+    def validate_ip(self, ip):
+        try:
+            parts = list(map(int, ip.split(".")))
+            return len(parts) == 4 and all(0 <= p <= 255 for p in parts)
+        except:
+            return False
+
+    def update_fields(self, event=None):
+        for widget in self.field_frame.winfo_children():
+            widget.destroy()
+
+        protocol = self.protocol_var.get()
+        fields = []
+
+        if protocol == "IP":
+            fields = [
+                ("src_ip", "源IP"), ("dst_ip", "目标IP"),
+                ("proto", "协议号(1=ICMP,6=TCP,17=UDP)"), ("payload", "负载数据")
+            ]
+        elif protocol == "TCP":
+            fields = [("src_ip", "源IP"), ("dst_ip", "目标IP"),
+                      ("sport", "源端口"), ("dport", "目标端口")]
+        elif protocol == "UDP":
+            fields = [("src_ip", "源IP"), ("dst_ip", "目标IP"),
+                      ("sport", "源端口"), ("dport", "目标端口")]
+        elif protocol == "ICMP":
+            fields = [("src_ip", "源IP"), ("dst_ip", "目标IP"),
+                      ("type", "类型"), ("code", "代码")]
+        elif protocol == "ARP":
+            fields = [("src_mac", "源MAC"), ("src_ip", "源IP"),
+                      ("dst_mac", "目标MAC"), ("dst_ip", "目标IP")]
+        elif protocol == "MAC":
+            fields = [("src_mac", "源MAC"), ("dst_mac", "目标MAC"),
+                      ("ether_type", "类型(十六进制如0800)")]
+
+        self.fields = {}
+        for row, (field, label) in enumerate(fields):
+            ttk.Label(self.field_frame, text=label).grid(row=row, column=0, sticky="e")
+            entry = ttk.Entry(self.field_frame, width=25)
+            entry.grid(row=row, column=1, padx=2, pady=2)
+            self.fields[field] = entry
+
+    def get_values(self):
+        values = {k: v.get().strip() for k, v in self.fields.items()}
+        protocol = self.protocol_var.get()
+        errors = []
+
+        if protocol == "IP":
+            if not self.validate_ip(values.get("src_ip", "")):
+                errors.append("源IP地址格式错误")
+            if not self.validate_ip(values.get("dst_ip", "")):
+                errors.append("目标IP地址格式错误")
+            try:
+                proto = int(values.get("proto", 0))
+                if proto not in [1, 6, 17]:
+                    errors.append("协议号必须为1(ICMP)/6(TCP)/17(UDP)")
+            except ValueError:
+                errors.append("协议号必须是数字")
+
+        elif protocol in ["TCP", "UDP"]:
+            if not self.validate_ip(values.get("src_ip", "")):
+                errors.append("源IP地址格式错误")
+            if not self.validate_ip(values.get("dst_ip", "")):
+                errors.append("目标IP地址格式错误")
+            try:
+                if not 0 <= int(values.get("sport", 0)) <= 65535:
+                    errors.append("源端口超出范围")
+                if not 0 <= int(values.get("dport", 0)) <= 65535:
+                    errors.append("目标端口超出范围")
+            except ValueError:
+                errors.append("端口必须是数字")
+
+        elif protocol == "ICMP":
+            if not self.validate_ip(values.get("src_ip", "")):
+                errors.append("源IP地址格式错误")
+            if not self.validate_ip(values.get("dst_ip", "")):
+                errors.append("目标IP地址格式错误")
+            try:
+                if not 0 <= int(values.get("type", 0)) <= 255:
+                    errors.append("类型值超出范围")
+                if not 0 <= int(values.get("code", 0)) <= 255:
+                    errors.append("代码值超出范围")
+            except ValueError:
+                errors.append("类型/代码必须是数字")
+
+        elif protocol == "ARP":
+            if not self.validate_mac(values.get("src_mac", "")):
+                errors.append("源MAC地址格式错误")
+            if not self.validate_ip(values.get("src_ip", "")):
+                errors.append("源IP地址格式错误")
+            if not self.validate_mac(values.get("dst_mac", "")):
+                errors.append("目标MAC地址格式错误")
+            if not self.validate_ip(values.get("dst_ip", "")):
+                errors.append("目标IP地址格式错误")
+
+        elif protocol == "MAC":
+            if not self.validate_mac(values.get("src_mac", "")):
+                errors.append("源MAC地址格式错误")
+            if not self.validate_mac(values.get("dst_mac", "")):
+                errors.append("目标MAC地址格式错误")
+            try:
+                int(values.get("ether_type", ""), 16)
+            except ValueError:
+                errors.append("以太网类型必须是十六进制")
+
+        return values, errors
+
+    def toggle_sending(self):
+        if not self.sending:
+            values, errors = self.get_values()
+            if errors:
+                self.log("\n".join(errors), "error")
+                return
+
+            self.sending = True
+            self.send_btn.config(text="停止发送")
+            interval = max(0.1, float(self.interval_entry.get()))
+            threading.Thread(target=self.send_loop, args=(interval,), daemon=True).start()
+        else:
+            self.sending = False
+            self.send_btn.config(text="开始发送")
+
+    def send_loop(self, interval):
+        while self.sending:
+            try:
+                self.send_packet()
+                time.sleep(interval)
+            except Exception as e:
+                self.log(f"发送错误: {str(e)}", "error")
+                self.sending = False
+                self.send_btn.config(text="开始发送")
+                break
+
+    def send_packet(self):
+        try:
+            protocol = self.protocol_var.get()
+            values, _ = self.get_values()
+
+            if protocol == "IP":
+                packet = IP(
+                    src=values["src_ip"],
+                    dst=values["dst_ip"],
+                    proto=int(values["proto"])
+                ) / Raw(load=values["payload"].encode())
+                send(packet, verbose=0)
+
+            elif protocol == "TCP":
+                packet = IP(
+                    src=values["src_ip"],
+                    dst=values["dst_ip"]
+                ) / TCP(
+                    sport=int(values["sport"]),
+                    dport=int(values["dport"])
+                ) / b"TCP Test Payload"
+                send(packet, verbose=0)
+
+            elif protocol == "UDP":
+                packet = IP(
+                    src=values["src_ip"],
+                    dst=values["dst_ip"]
+                ) / UDP(
+                    sport=int(values["sport"]),
+                    dport=int(values["dport"])
+                ) / b"UDP Test Payload"
+                send(packet, verbose=0)
+
+            elif protocol == "ICMP":
+                packet = IP(
+                    src=values["src_ip"],
+                    dst=values["dst_ip"]
+                ) / ICMP(
+                    type=int(values["type"]),
+                    code=int(values["code"])
+                ) / b"ICMP Test"
+                send(packet, verbose=0)
+
+            elif protocol == "ARP":
+                packet = Ether(
+                    src=values["src_mac"],
+                    dst=values["dst_mac"]
+                ) / ARP(
+                    op="who-has",
+                    psrc=values["src_ip"],
+                    pdst=values["dst_ip"]
+                )
+                sendp(packet, verbose=0)
+
+            elif protocol == "MAC":
+                packet = Ether(
+                    src=values["src_mac"],
+                    dst=values["dst_mac"],
+                    type=int(values["ether_type"], 16)
+                ) / b"MAC Frame"
+                sendp(packet, verbose=0)
+
+            # 更新对应协议的发送数量
+            self.send_count[protocol] += 1
+            # 更新统计信息显示
+            self.update_stats()
+
+            self.log(f"{protocol} 数据包已发送", "success")
+        except Exception as e:
+            self.log(f"发送失败: {str(e)}", "error")
+
+    def log(self, message, tag=None):
+        self.log_area.insert(tk.END, message + "\n", tag)
+        self.log_area.see(tk.END)
+
+    # 更新统计信息显示的方法
+    def update_stats(self):
+        stats_text = "发送统计："
+        for protocol, count in self.send_count.items():
+            stats_text += f"{protocol}: {count} 条；"
+        self.stats_area.config(text=stats_text)
+
+    # 新增：一键清除方法
+    def clear_all(self):
+        # 清空日志区域
+        self.log_area.delete(1.0, tk.END)
+        # 重置发送统计信息
+        for protocol in self.send_count:
+            self.send_count[protocol] = 0
+        # 更新统计信息显示
+        self.update_stats()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ProtocolSender(root)
+    root.mainloop()
