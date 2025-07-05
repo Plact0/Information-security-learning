@@ -1,0 +1,589 @@
+import sys
+import tkinter
+from tkinter import ttk
+import socket
+import sqlite3
+import time
+import threading
+import tkinter.messagebox
+from Message import Message, UserStateMessage, OperationMessage, FileMessage
+
+# 全局变量
+Online = {}  # 在线用户字典 {username: (conn, ip, port, login_time, assigned_port)}
+available_ports = list(range(9091, 9101))  # 可用端口池
+ports_lock = threading.Lock()  # 端口操作锁
+
+class Server_GUI:
+    def __init__(self, window):
+        self.window = window
+        self.Manage_window = tkinter.Toplevel()
+        self.Manage_window.withdraw()
+        self.selectUser = None
+        self.conn = None
+        self.cur = None
+        self.Server = None
+        self.running = True
+        self.set_init_window()
+
+    def set_init_window(self):
+        """初始化主界面"""
+        self.window.title('聊天服务器')
+        self.window.geometry('800x600')
+        self.window.resizable(False, False)
+
+        # 消息监控区
+        msg_frame = tkinter.LabelFrame(self.window, text="消息监控")
+        msg_frame.pack(fill=tkinter.BOTH, expand=True, padx=10, pady=5)
+
+        self.message_text = tkinter.Text(msg_frame, state='disabled', wrap=tkinter.WORD)
+        scrollbar = tkinter.Scrollbar(msg_frame)
+        self.message_text.configure(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.message_text.yview)
+        scrollbar.pack(side=tkinter.RIGHT, fill=tkinter.Y)
+        self.message_text.pack(fill=tkinter.BOTH, expand=True)
+
+        # 在线用户区
+        user_frame = tkinter.LabelFrame(self.window, text="在线用户", width=200)
+        user_frame.pack(fill=tkinter.Y, side=tkinter.RIGHT, padx=5)
+
+        self.UserGroup = ttk.Treeview(user_frame, columns=('username',), show='headings')
+        self.UserGroup.heading('username', text='用户名')
+        self.UserGroup.column('username', width=180)
+        self.UserGroup.pack(fill=tkinter.BOTH, expand=True)
+        self.UserGroup.bind('<ButtonRelease-1>', self.UserGroup_Click)
+
+        # 控制按钮区
+        control_frame = tkinter.Frame(self.window)
+        control_frame.pack(fill=tkinter.X, pady=5)
+
+        self.StartButton = tkinter.Button(control_frame, text="启动服务器", command=self.start_server)
+        self.ManageButton = tkinter.Button(control_frame, text="用户管理", state='disabled',
+                                         command=self.show_user_manager)
+        self.StartButton.pack(side=tkinter.LEFT, padx=10)
+        self.ManageButton.pack(side=tkinter.LEFT)
+
+        # 右键菜单
+        self.context_menu = tkinter.Menu(self.window, tearoff=0)
+        self.context_menu.add_command(label="强制下线", command=self.force_offline)
+        self.UserGroup.bind("<Button-3>", self.show_context_menu)
+
+        # 用户管理窗口初始化
+        self.init_user_manager()
+        self.window.protocol('WM_DELETE_WINDOW', self.shutdown)
+
+    def init_user_manager(self):
+        """初始化用户管理窗口"""
+        self.Manage_window.title("用户管理")
+        self.Manage_window.geometry("600x400")
+        self.Manage_window.protocol("WM_DELETE_WINDOW", self.hide_user_manager)
+
+        # 用户列表区
+        mgr_frame = tkinter.LabelFrame(self.Manage_window, text="注册用户")
+        mgr_frame.pack(fill=tkinter.BOTH, expand=True, padx=10, pady=10)
+
+        self.UserManage = ttk.Treeview(mgr_frame, columns=('username', 'regtime'), show='headings')
+        self.UserManage.heading('username', text='用户名')
+        self.UserManage.heading('regtime', text='注册时间')
+        self.UserManage.column('username', width=200)
+        self.UserManage.column('regtime', width=300)
+        self.UserManage.pack(fill=tkinter.BOTH, expand=True)
+        self.UserManage.bind('<<TreeviewSelect>>', self.on_user_select)
+
+        # 按钮区
+        btn_frame = tkinter.Frame(self.Manage_window)
+        btn_frame.pack(pady=10)
+        tkinter.Button(btn_frame, text="删除用户", command=self.delete_user).pack(side=tkinter.LEFT, padx=10)
+        tkinter.Button(btn_frame, text="返回主界面", command=self.hide_user_manager).pack(side=tkinter.LEFT)
+
+    def on_user_select(self, event):
+        """处理用户选择事件"""
+        selected = self.UserManage.selection()
+        if selected:
+            self.selectUser = self.UserManage.item(selected[0], 'values')[0]
+            status = "在线" if self.selectUser in Online else "离线"
+            tkinter.Label(self.Manage_window, text=f"当前选中用户：{self.selectUser}（{status}）").pack(fill=tkinter.X)
+        else:
+            self.selectUser = None
+            for widget in self.Manage_window.winfo_children():
+                if isinstance(widget, tkinter.Label):
+                    widget.destroy()
+
+    def show_user_manager(self):
+        """显示用户管理窗口"""
+        self.window.withdraw()
+        self.Manage_window.deiconify()
+        self.refresh_user_list()
+
+    def hide_user_manager(self):
+        """隐藏用户管理窗口"""
+        self.Manage_window.withdraw()
+        self.window.deiconify()
+
+    def start_server(self):
+        """启动服务器"""
+        try:
+            self.init_database()
+            self.Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.Server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.Server.bind(('0.0.0.0', 9090))
+            self.Server.listen(10)
+
+            listener = ServerListener(self.message_text, self.UserGroup, self.cur, self.Server, self.conn)
+            listener.daemon = True
+            listener.start()
+
+            self.log_message("服务器启动成功，监听地址：0.0.0.0:9090")
+            self.StartButton.config(state='disabled')
+            self.ManageButton.config(state='normal')
+
+        except Exception as e:
+            self.log_message(f"服务器启动失败: {str(e)}", error=True)
+
+    def init_database(self):
+        """初始化数据库"""
+        self.conn = sqlite3.connect('chat.db', check_same_thread=False, timeout=10)
+        self.cur = self.conn.cursor()
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS users (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            username username TEXT(20) UNIQUE NOT NULL,
+                            password TEXT(64) NOT NULL,
+                            register_time TEXT NOT NULL)''')
+        self.conn.commit()
+
+    def log_message(self, msg, error=False):
+        """记录日志到界面"""
+        self.message_text.config(state='normal')
+        tag = 'ERROR' if error else 'INFO'
+        self.message_text.insert(tkinter.END, f"[{get_time()}] [{tag}] {msg}\n", (tag,))
+        self.message_text.tag_config('ERROR', foreground='red')
+        self.message_text.see(tkinter.END)
+        self.message_text.config(state='disabled')
+
+    def refresh_user_list(self):
+        """刷新用户管理列表"""
+        for item in self.UserManage.get_children():
+            self.UserManage.delete(item)
+        self.cur.execute("SELECT username, register_time FROM users")
+        for user in self.cur.fetchall():
+            self.UserManage.insert("", 'end', values=user)
+
+    def delete_user(self):
+        """删除用户"""
+        if not self.selectUser:
+            tkinter.messagebox.showwarning("操作错误", "请先选择要删除的用户")
+            return
+
+        confirm = tkinter.messagebox.askyesno("确认删除", f"确定要永久删除用户 {self.selectUser} 吗？")
+        if not confirm:
+            return
+
+        if self.selectUser in Online:
+            self.force_offline_user(self.selectUser)
+
+        try:
+            self.cur.execute("DELETE FROM users WHERE username=?", (self.selectUser,))
+            self.conn.commit()
+            self.refresh_user_list()
+            self.log_message(f"已删除用户: {self.selectUser}")
+        except Exception as e:
+            self.conn.rollback()
+            self.log_message(f"删除用户失败: {str(e)}", error=True)
+
+    def force_offline_user(self, username):
+        """强制用户下线"""
+        if username in Online:
+            try:
+                Online[username][0].close()
+                with ports_lock:
+                    port = Online[username][4]
+                    available_ports.append(port)
+                del Online[username]
+                self.UserGroup.delete(username)
+                self.log_message(f"已强制用户下线: {username}")
+
+                # 广播离线消息
+                offline_msg = UserStateMessage(way='Offline', value=username).serialize()
+                for user in Online.values():
+                    try:
+                        user[0].send(offline_msg.encode())
+                    except:
+                        continue
+
+                # 广播最新用户列表
+                user_list_msg = Message(way='user_list', value=list(Online.keys())).serialize()
+                for user in Online.values():
+                    try:
+                        user[0].send(user_list_msg.encode())
+                    except:
+                        continue
+            except Exception as e:
+                self.log_message(f"强制下线失败: {str(e)}", error=True)
+
+    def UserGroup_Click(self, event):
+        """处理在线用户列表点击事件"""
+        try:
+            self.delete_iid = self.UserGroup.selection()[0]
+        except:
+            self.delete_iid = None
+
+    def show_context_menu(self, event):
+        """显示右键菜单"""
+        self.context_menu.post(event.x_root, event.y_root)
+
+    def force_offline(self):
+        """强制用户下线"""
+        if self.delete_iid and self.delete_iid in Online:
+            try:
+                Online[self.delete_iid][0].close()
+                with ports_lock:
+                    port = Online[self.delete_iid][4]
+                    available_ports.append(port)
+                del Online[self.delete_iid]
+                self.UserGroup.delete(self.delete_iid)
+                self.log_message(f"已强制用户下线: {self.delete_iid}")
+            except Exception as e:
+                self.log_message(f"强制下线失败: {str(e)}", error=True)
+
+    def shutdown(self):
+        """安全关闭服务器"""
+        self.running = False
+        try:
+            for username in list(Online.keys()):
+                self.force_offline_user(username)
+
+            if self.conn:
+                self.conn.close()
+            if self.Server:
+                self.Server.close()
+        finally:
+            sys.exit(0)
+
+class ServerListener(threading.Thread):
+    """服务器监听线程"""
+    def __init__(self, text_widget, user_tree, db_cursor, server_socket, db_conn):
+        super().__init__()
+        self.text = text_widget
+        self.user_tree = user_tree
+        self.cur = db_cursor
+        self.conn = db_conn
+        self.server = server_socket
+        self.buffers = {}
+
+    def run(self):
+        """主监听循环"""
+        while True:
+            try:
+                conn, addr = self.server.accept()
+                client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+                client_thread.daemon = True
+                client_thread.start()
+            except OSError:
+                break
+
+    def handle_client(self, conn, addr):
+        """处理客户端连接"""
+        username = None
+        buffer = ''
+        try:
+            conn.settimeout(60)
+            while True:
+                try:
+                    raw_data = conn.recv(1024).decode()
+                    if not raw_data:
+                        break
+                    buffer += raw_data
+
+                    while '\n' in buffer:
+                        msg_str, buffer = buffer.split('\n', 1)
+                        msg_str = msg_str.strip()
+                        if not msg_str:
+                            continue
+                        msg = Message(Messages=msg_str)
+
+                        if msg.way == 'register':
+                            self.handle_register(conn, msg)
+                        elif msg.way == 'login':
+                            username = self.handle_login(conn, msg, addr)
+                        elif msg.way == 'heartbeat':
+                            conn.send(Message(way='heartbeat_ack', value='pong\n').serialize().encode())
+                        elif msg.is_chat_message():
+                            self.route_message(username, msg)
+                        elif msg.is_file_message():
+                            self.route_message(username, msg)
+
+                except socket.timeout:
+                    continue
+        except Exception as e:
+            self.log(f"连接异常: {addr} - {str(e)}", error=True)
+        finally:
+            if username:
+                self.handle_disconnect(username)
+            conn.close()
+
+    def handle_register(self, conn, msg):
+        """处理注册请求"""
+        try:
+            if '\t' not in msg.value:
+                conn.send(Message(way='error', value="注册信息格式错误\n").serialize().encode())
+                return
+
+            username, hashed_pw = msg.value.split('\t', 1)
+            if not (3 <= len(username) <= 20) or not username.isalnum():
+                conn.send(Message(way='error', value="用户名需3-20位字母数字\n").serialize().encode())
+                return
+
+            self.cur.execute("SELECT username FROM users WHERE username=?", (username,))
+            if self.cur.fetchone():
+                conn.send(Message(way='error', value="用户名已存在\n").serialize().encode())
+                return
+
+            try:
+                self.cur.execute(
+                    "INSERT INTO users (username, password, register_time) VALUES (?, ?, ?)",
+                    (username, hashed_pw, get_time())
+                )
+                self.conn.commit()
+                conn.send(Message(way='registered_success', value="注册成功\n").serialize().encode())
+                self.log(f"新用户注册成功: {username}")
+            except Exception as e:
+                self.log(f"数据库错误: {str(e)}", error=True)
+                conn.send(Message(way='error', value="服务器内部错误\n").serialize().encode())
+        except Exception as e:
+            self.log(f"注册处理异常: {str(e)}", error=True)
+
+    def handle_login(self, conn, msg, addr):
+        """处理登录请求（完整修复版）"""
+        try:
+            if '\t' not in msg.value:
+                conn.send("login_error\t无效的登录格式\n".encode())
+                return None
+
+            username, password = msg.value.split('\t', 1)
+            self.log(f"登录尝试: {username} | 哈希密码: {password}")
+
+            # 数据库验证
+            self.cur.execute("SELECT password FROM users WHERE username=?", (username,))
+            result = self.cur.fetchone()
+
+            if not result:
+                conn.send("login_error\t用户不存在\n".encode())
+                return None
+            if result[0] != password:
+                conn.send("login_error\t密码错误\n".encode())
+                return None
+            if username in Online:
+                conn.send("login_error\t该账号已在线\n".encode())
+                return None
+
+            # 分配端口
+            with ports_lock:
+                if not available_ports:
+                    conn.send("login_error\t没有可用端口\n".encode())
+                    return None
+                port = available_ports.pop(0)
+
+            login_time = get_time()
+
+            # =============== 关键修复点 ===============
+            # 1. 先加入在线列表
+            Online[username] = (conn, addr[0], addr[1], login_time, port)
+            self.user_tree.insert("", 'end', iid=username, values=(username,))
+
+            # 2. 发送登录成功响应（包含端口）
+            conn.send(f"login_success\t{login_time}\t{port}\n".encode())
+
+            # 3. 发送最新用户列表（包含自己）
+            user_list_msg = Message(way='user_list', value=list(Online.keys())).serialize()
+            conn.send(user_list_msg.encode())
+
+            # 4. 广播用户上线通知（排除自己）
+            user_online_msg = UserStateMessage(way='Online', value=username).serialize()
+            for user in Online.values():
+                if user[0] != conn:  # 不发送给自己
+                    try:
+                        user[0].send(user_online_msg.encode())
+                    except:
+                        continue
+
+            self.log(f"登录成功: {username}，分配端口: {port}")
+            return username
+
+        except Exception as e:
+            self.log(f"登录处理错误: {str(e)}", error=True)
+            return None
+
+    def route_message(self, username, msg):
+        """路由消息处理"""
+        try:
+            if msg.way == 'public':
+                self.handle_public(username, msg)
+            elif msg.way == 'private':
+                self.handle_private(username, msg)
+            elif msg.way.startswith('file_'):
+                self.handle_file(username, msg)
+        except KeyError:
+            self.log(f"用户已离线: {username}", error=True)
+
+    def handle_public(self, username, msg):
+        """处理公聊消息"""
+        formatted = f"[{get_time()}] [公聊][{username}]: {msg.value}"
+        broadcast = Message(way='public', value=f"{formatted}\n").serialize()
+        for user in Online.values():
+            try:
+                user[0].send(broadcast.encode())
+            except:
+                continue
+        self.log(formatted)
+
+    def handle_private(self, username, msg):
+        """处理私聊消息"""
+        try:
+            receiver = msg.sender
+            content = msg.content
+
+            if receiver not in Online:
+                raise ValueError(f"用户 {receiver} 不在线")
+
+            # 构造消息
+            receiver_msg = Message(way='private',
+                                   value=(username, f"[{get_time()}] [私聊] {username}: {content}")).serialize()
+            sender_msg = Message(way='private',
+                                 value=(receiver, f"[{get_time()}] [发送至] {receiver}: {content}")).serialize()
+
+            # 发送消息
+            Online[receiver][0].send(receiver_msg.encode())
+            Online[username][0].send(sender_msg.encode())
+
+        except Exception as e:
+            error_msg = Message(way='error', value=str(e)).serialize()
+            Online[username][0].send(error_msg.encode())
+
+    def handle_file(self, username, msg):
+        """处理文件消息"""
+        try:
+            if msg.way == 'file_request':
+                receiver = msg.value.get('receiver')
+                if receiver not in Online:
+                    error_msg = Message(way='file_error', value={'error': f"用户 {receiver} 不在线"}).serialize()
+                    Online[username][0].send(error_msg.encode())
+                    return
+
+                sender_ip = Online[username][1]
+                sender_port = Online[username][4] + 1
+
+                forward_value = {
+                    'sender': username,
+                    'filename': msg.value['filename'],
+                    'size': msg.value['size'],
+                    'ip': sender_ip,
+                    'port': str(sender_port),
+                    'transfer_id': msg.value['transfer_id']
+                }
+                forward_msg = Message(way='file_request', value=forward_value).serialize()
+                Online[receiver][0].send(forward_msg.encode())
+
+                # 通知所有用户文件传输开始
+                notify_msg = Message(
+                    way='file_notify',
+                    value={
+                        'sender': username,
+                        'receiver': receiver,
+                        'filename': msg.value['filename']
+                    }
+                ).serialize()
+                for user in Online.values():
+                    try:
+                        user[0].send(notify_msg.encode())
+                    except:
+                        continue
+
+            elif msg.way == 'file_progress':
+                transfer_id = msg.value.get('transfer_id')
+                progress = msg.value.get('progress', 0)
+                speed = msg.value.get('speed', 0)
+                print(f"[PROGRESS] {transfer_id} 进度: {progress}% 速度: {speed}KB/s")
+
+                # 广播进度更新
+                progress_msg = Message(
+                    way='file_progress',
+                    value={
+                        'transfer_id': transfer_id,
+                        'progress': progress,
+                        'speed': speed
+                    }
+                ).serialize()
+                for user in Online.values():
+                    try:
+                        user[0].send(progress_msg.encode())
+                    except:
+                        continue
+
+            elif msg.way == 'file_reject':
+                transfer_id = msg.value.get('transfer_id')
+                target_user = msg.value.get('receiver')
+
+                if target_user in Online:
+                    forward_msg = Message(way='file_reject', value={
+                        'transfer_id': transfer_id,
+                        'sender': username
+                    }).serialize()
+                    Online[target_user][0].send(forward_msg.encode())
+
+            elif msg.way in ('file_accept', 'file_cancel'):
+                transfer_id = msg.value.get('transfer_id')
+                target_user = msg.value.get('sender')
+                if target_user in Online:
+                    forward_msg = Message(way=msg.way, value={
+                        'transfer_id': transfer_id,
+                        **msg.value
+                    }).serialize()
+                    Online[target_user][0].send(forward_msg.encode())
+
+        except Exception as e:
+            error_msg = Message(way='file_error', value={'error': str(e)}).serialize()
+            Online[username][0].send(error_msg.encode())
+
+    def handle_disconnect(self, username):
+        """处理用户断开连接"""
+        if username in Online:
+            with ports_lock:
+                port = Online[username][4]
+                available_ports.append(port)
+            del Online[username]
+            self.user_tree.delete(username)
+
+            # 广播离线消息
+            offline_msg = UserStateMessage(way='Offline', value=username).serialize()
+            for user in Online.values():
+                try:
+                    user[0].send(offline_msg.encode())
+                except:
+                    continue
+
+            # 广播最新用户列表
+            user_list_msg = Message(way='user_list', value=list(Online.keys())).serialize()
+            for user in Online.values():
+                try:
+                    user[0].send(user_list_msg.encode())
+                except:
+                    continue
+
+            self.log(f"用户断开连接: {username}")
+
+    def log(self, message, error=False):
+        """记录日志"""
+        self.text.config(state='normal')
+        tag = 'ERROR' if error else 'INFO'
+        self.text.insert(tkinter.END, f"[{get_time()}] [{tag}] {message}\n", (tag,))
+        self.text.tag_config('ERROR', foreground='red')
+        self.text.see(tkinter.END)
+        self.text.config(state='disabled')
+
+def get_time():
+    """获取标准化时间"""
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+if __name__ == "__main__":
+    root = tkinter.Tk()
+    server_gui = Server_GUI(root)
+    root.mainloop()
