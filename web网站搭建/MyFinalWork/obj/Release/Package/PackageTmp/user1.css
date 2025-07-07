@@ -1,0 +1,310 @@
+﻿* {
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    list-style: none;
+}
+
+
+.box {
+    width: 1150px;
+    height: 300px;
+    position: relative;
+    left: 200px;
+    top: 5px;
+    background: #b05353;
+}
+
+.box-img {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    opacity: 0;
+}
+
+    .box-img img {
+        width: 1150px;
+        height: 300px;
+        /* max-width: 100%;
+    max-height: 100%; */
+    }
+
+    .box-img:nth-child(1) {
+        opacity: 1;
+    }
+
+.box-left {
+    width: 35px;
+    height: 70px;
+    position: absolute;
+    top: 120px;
+    color: #ccc;
+    border-radius: 0 5px 5px 0;
+    text-align: center;
+    font-weight: bolder;
+    line-height: 70px;
+    font-size: 25px;
+}
+
+.box-right {
+    width: 35px;
+    height: 70px;
+    position: absolute;
+    top: 120px;
+    right: 0;
+    color: #ccc;
+    border-radius: 5px 0 0 5px;
+    text-align: center;
+    font-weight: bolder;
+    line-height: 70px;
+    font-size: 25px;
+}
+
+.box-left:hover {
+    background: #00000050;
+    color: #ffffff;
+}
+
+.box-right:hover {
+    background: #00000050;
+    color: #ffffff;
+}
+
+.box-dot > ul, li {
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+}
+
+.box-dot li {
+    width: 12px;
+    height: 12px;
+    border-radius: 100%;
+    background-color: #7abff8;
+    float: left;
+    margin-right: 10px;
+}
+
+.box-dot {
+    position: absolute;
+    bottom: 10px;
+    right: 20px;
+}
+
+    .box-dot li:hover {
+        background-color: #fff;
+    }
+
+.lostbox {
+    position: absolute;
+    left: 200px;
+    top: 385px;
+    /*    background: #efeded;*/
+    width: 555px;
+    height: 275px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 8px rgb(76, 75, 75, 0.4);
+}
+
+.lostbox a {
+    position: absolute;
+    color: #0b0a0a50;
+    left: 450px;
+    top:15px;
+}
+
+.lostbox a:hover {
+     color: #7abff8;
+ }
+
+.lostbox>p {
+    color:#a7c7e7;
+    font-size:larger;
+    font-weight:bolder;
+    position:absolute;
+    top:15px;
+    left:15px;
+}
+
+.findbox {
+    position: absolute;
+    left: 795px;
+    top: 385px;
+/*    background: #efeded;*/
+    width: 555px;
+    height: 275px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 8px rgb(76, 75, 75, 0.4);
+}
+
+.findbox a {
+     position: absolute;
+     color: #0b0a0a50;
+     top: 15px;
+     left: 450px;
+}
+
+.findbox a:hover {
+    color: #7abff8;
+}
+
+.findbox > p {
+    color: #a7c7e7;
+    font-size: larger;
+    font-weight: bolder;
+    position: absolute;
+    top: 15px;
+    left: 15px;
+}
+
+
+.lostbox1 {
+    /*    background-color: antiquewhite;*/
+    width: 250px;
+    height: 180px;
+    position: absolute;
+    left: 18px;
+    top: 60px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+}
+
+    .lostbox1 > h3 {
+        position: absolute;
+        top: 20px;
+        left: 120px;
+        color: #6082b6;
+    }
+
+.lostbox1>p {
+    position:absolute;
+    top:50px;
+    left:120px;
+    line-height:30px;
+}
+
+.lostbox2 {
+    /*    background-color: antiquewhite;*/
+    width: 250px;
+    height: 180px;
+    position: absolute;
+    left: 288px;
+    top: 60px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+}
+
+.lostbox2 > h3 {
+    color: #6082b6;
+    position: absolute;
+    top: 20px;
+    left: 120px;
+}
+
+.lostbox2 > p {
+    position: absolute;
+    top: 50px;
+    left: 120px;
+    line-height: 30px;
+}
+
+.lostimg > img {
+    width: 90px;
+    height: 90px;
+    border-radius: 1cap;
+    position:relative;
+    top:20px;
+    left:20px;
+}
+
+.findbox1 {
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+    width: 250px;
+    height: 180px;
+    position: absolute;
+    left: 18px;
+    top: 60px;
+    border-radius: 1cap;
+}
+
+.findbox1>h3 {
+    position:absolute;
+    top:20px;
+    left:120px;
+    color: #6082b6;
+}
+
+.findbox1>p {
+    position:absolute;
+    top:50px;
+    left:120px;
+    line-height:30px;
+}
+
+.findbox2 {
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+    width: 250px;
+    height: 180px;
+    position: absolute;
+    left: 288px;
+    top: 60px;
+    border-radius: 1cap;
+}
+
+.findbox2 > h3 {
+    position: absolute;
+    top: 20px;
+    left: 120px;
+    color: #6082b6;
+}
+
+.findbox2 > p {
+    position: absolute;
+    top: 50px;
+    left: 120px;
+    line-height: 30px;
+}
+
+.findimg > img {
+    width: 90px;
+    height: 90px;
+    border-radius: 1cap;
+    position:relative;
+    top:20px;
+    left:20px;
+}
+
+.lostbox:hover {
+    box-shadow: 5px 5px 20px rgb(76, 75, 75, 0.5);
+}
+
+.lostbox1:hover {
+    box-shadow: 5px 5px 20px rgb(76, 75, 75, 0.5);
+}
+
+.lostbox2:hover {
+    box-shadow: 5px 5px 20px rgb(76, 75, 75, 0.5);
+}
+
+.findbox:hover {
+    box-shadow: 5px 5px 20px rgb(76, 75, 75, 0.5);
+}
+
+.findbox1:hover {
+    box-shadow: 5px 5px 20px rgb(76, 75, 75, 0.5);
+}
+
+.findbox2:hover {
+    box-shadow: 5px 5px 20px rgb(76, 75, 75, 0.5);
+}
+
+.Linkbtn {
+    position: relative;
+    left: 90px;
+    top: 35px;
+    width: 80px;
+    height: 30px;
+    color:#6082b6;
+    background-color: rgb(182,208,226,0.8);
+}
+

@@ -1,0 +1,91 @@
+﻿* {
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    list-style: none;
+}
+.box {
+    width: 505px;
+    height: 540px;
+    position: relative;
+    left: 550px;
+    top: 85px;
+    background-color: white;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 8px rgb(76, 75, 75, 0.4);
+}
+.UpdatedBox {
+    position: relative;
+    left: 40px;
+    top: 40px;
+    line-height:25px;
+/*    width:500px;*/
+}
+
+.tb {
+    width:250px;
+    height:25px;
+    position:absolute;
+    left:80px;
+}
+.la {
+    font-size: 15px;
+    font-weight: bold;
+    color: #6082b6;
+}
+.btn {
+    position: absolute;
+    left: 355px;
+    width: 80px;
+    height: 27px;
+    color: #6082b6;
+    font-weight: 400;
+}
+#FileUpload1 {
+    position: absolute;
+    left: 80px;
+    width: 200px;
+    height: 30px;
+    color: #6082b6;
+}
+
+#Calendar1 {
+    position: absolute;
+    left: 100px;
+    top: 120px;
+    color:#a7c7e7;
+    background-color: #b6d0e2;
+}
+.rbtn {
+    position: absolute;
+    left: 80px;
+    color:#6082b6;
+}
+h2 {
+    position:relative;
+    top:5px;
+    color:#6082b6
+}
+
+.div1 {
+    background-image:url("bg.jpg");
+    height:690px;
+    max-width:100%;
+}
+
+#Button3 {
+    position: absolute;
+    left: 120px;
+    width: 180px;
+    top:430px;
+    height: 35px;
+    color: #6082b6;
+    font-weight: 400;
+}
+
+.rr {
+    position:absolute;
+    left:345px;
+    top:275px;
+    color:red;
+}

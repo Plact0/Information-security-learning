@@ -1,0 +1,102 @@
+﻿* {
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    list-style: none;
+}
+
+#Label1 {
+    font-size: 30px;
+    font-weight: 600;
+    color: #7393b3;
+    position: relative;
+    top: 20px;
+    left: 200px;
+}
+.box {
+    position:relative;
+    left:200px;
+    top:50px;
+}
+.l {
+    font-size: 20px;
+    font-weight: 500;
+    color: #7393b3;
+}
+.ll {
+    font-size: 20px;
+    font-weight: 500;
+}
+
+#TextBox1 {
+    position:absolute;
+    left:65px;
+    top:50px;
+    width:180px;
+    height:20px;
+}
+#TextBox2 {
+    position: absolute;
+    left: 65px;
+    top: 97px;
+    width: 180px;
+    height: 20px;
+}
+.btn {
+    
+    width: 50px;
+    height: 24px;
+    color: #6082b6;
+    font-weight: 400;
+}
+
+#Button3 {
+    position:absolute;
+    left:290px;
+    top:50px;
+}
+#Button4 {
+    position: absolute;
+    left: 290px;
+    top: 95px;
+}
+#Button1 {
+    position: absolute;
+    left: 280px;
+    top: 50px;
+}
+#Button2 {
+    position: absolute;
+    left: 280px;
+    top: 95px;
+}
+#Button5 {
+    position: absolute;
+    left: 340px;
+    top: 50px;
+}
+#Button6 {
+    position: absolute;
+    left: 340px;
+    top: 95px;
+}
+#GridView1 {
+    position:relative;
+    top:10px;
+    width:1150px;
+    line-height:35px;
+    text-align:center;
+}
+#GridView2 {
+    position: relative;
+    top: 10px;
+    width: 1150px;
+    line-height: 35px;
+    text-align: center;
+}
+
+.r1 {
+    position:absolute;
+    left:680px;
+    color:red;
+}

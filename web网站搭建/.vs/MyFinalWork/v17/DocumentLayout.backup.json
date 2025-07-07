@@ -1,0 +1,258 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\WebVs\\MyFinalWork\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\adminormain.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\adminormain.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\j1.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\j1.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\userpagemain.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userpagemain.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\userpagemain.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userpagemain.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\user1.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\user1.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\userguide.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userguide.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\publost.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\publost.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\publost.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\publost.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\own.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\own.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\userpage4.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userpage4.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\userpage4.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userpage4.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|D:\\WebVs\\MyFinalWork\\myfinalwork\\userpage2.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userpage2.aspx.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|D:\\WebVs\\MyFinalWork\\myfinalwork\\userpage2.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\userpage2.aspx||{57312C73-6202-49E9-B1E1-40EA1A6DC1F6}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|d:\\webvs\\myfinalwork\\myfinalwork\\lostandfindbox.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
+      "RelativeMoniker": "D:0:0:{58E8388C-5A0F-47BF-831C-AF95542A9FB9}|MyFinalWork\\MyFinalWork.csproj|solutionrelative:myfinalwork\\lostandfindbox.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "AdminorMain.aspx",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\AdminorMain.aspx",
+              "RelativeDocumentMoniker": "MyFinalWork\\AdminorMain.aspx",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\AdminorMain.aspx",
+              "RelativeToolTip": "MyFinalWork\\AdminorMain.aspx",
+              "LogicalView": "7651a703-06e5-11d1-8ebd-00a0c90f26ea",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000195|",
+              "WhenOpened": "2024-12-06T15:39:12.595Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "J1.js",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\J1.js",
+              "RelativeDocumentMoniker": "MyFinalWork\\J1.js",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\J1.js",
+              "RelativeToolTip": "MyFinalWork\\J1.js",
+              "ViewState": "AgIAAA0AAAAAAAAAAAAQwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2024-12-06T15:30:29.429Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "user1.css",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\user1.css",
+              "RelativeDocumentMoniker": "MyFinalWork\\user1.css",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\user1.css",
+              "RelativeToolTip": "MyFinalWork\\user1.css",
+              "ViewState": "AgIAAAwAAAAAAAAAAAAAAEQAAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2024-12-06T15:28:34.254Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "userGuide.css",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\userGuide.css",
+              "RelativeDocumentMoniker": "MyFinalWork\\userGuide.css",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\userGuide.css",
+              "RelativeToolTip": "MyFinalWork\\userGuide.css",
+              "ViewState": "AgIAADkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2024-12-06T15:26:12.232Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "UserPageMain.aspx.cs",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPageMain.aspx.cs",
+              "RelativeDocumentMoniker": "MyFinalWork\\UserPageMain.aspx.cs",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPageMain.aspx.cs",
+              "RelativeToolTip": "MyFinalWork\\UserPageMain.aspx.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-12-06T15:24:11.273Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "UserPageMain.aspx",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPageMain.aspx",
+              "RelativeDocumentMoniker": "MyFinalWork\\UserPageMain.aspx",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPageMain.aspx",
+              "RelativeToolTip": "MyFinalWork\\UserPageMain.aspx",
+              "LogicalView": "7651a703-06e5-11d1-8ebd-00a0c90f26ea",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000195|",
+              "WhenOpened": "2024-12-06T15:20:40.019Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "PubLost.aspx.cs",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\PubLost.aspx.cs",
+              "RelativeDocumentMoniker": "MyFinalWork\\PubLost.aspx.cs",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\PubLost.aspx.cs",
+              "RelativeToolTip": "MyFinalWork\\PubLost.aspx.cs",
+              "ViewState": "AgIAAHEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-12-06T15:18:03.653Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "PubLost.aspx",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\PubLost.aspx",
+              "RelativeDocumentMoniker": "MyFinalWork\\PubLost.aspx",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\PubLost.aspx",
+              "RelativeToolTip": "MyFinalWork\\PubLost.aspx",
+              "LogicalView": "7651a703-06e5-11d1-8ebd-00a0c90f26ea",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000195|",
+              "WhenOpened": "2024-12-06T15:18:00.571Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "UserPage2.aspx.cs",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage2.aspx.cs",
+              "RelativeDocumentMoniker": "MyFinalWork\\UserPage2.aspx.cs",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage2.aspx.cs",
+              "RelativeToolTip": "MyFinalWork\\UserPage2.aspx.cs",
+              "ViewState": "AgIAAIoAAAAAAAAAAAAAwH8AAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-11-26T02:12:06.262Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
+              "Title": "LostandFindBox.css",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\LostandFindBox.css",
+              "RelativeDocumentMoniker": "MyFinalWork\\LostandFindBox.css",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\LostandFindBox.css",
+              "RelativeToolTip": "MyFinalWork\\LostandFindBox.css",
+              "ViewState": "AgIAAJkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2024-12-06T14:56:00.657Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "UserPage2.aspx",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage2.aspx",
+              "RelativeDocumentMoniker": "MyFinalWork\\UserPage2.aspx",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage2.aspx",
+              "RelativeToolTip": "MyFinalWork\\UserPage2.aspx",
+              "LogicalView": "7651a703-06e5-11d1-8ebd-00a0c90f26ea",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000195|",
+              "WhenOpened": "2024-11-26T02:11:31.739Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "own.css",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\own.css",
+              "RelativeDocumentMoniker": "MyFinalWork\\own.css",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\own.css",
+              "RelativeToolTip": "MyFinalWork\\own.css",
+              "ViewState": "AgIAADMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2024-12-06T14:41:42.585Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "UserPage4.aspx.cs",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage4.aspx.cs",
+              "RelativeDocumentMoniker": "MyFinalWork\\UserPage4.aspx.cs",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage4.aspx.cs",
+              "RelativeToolTip": "MyFinalWork\\UserPage4.aspx.cs",
+              "ViewState": "AgIAANkAAAAAAAAAAAAAwL0AAAAzAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-12-06T14:40:43.259Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "UserPage4.aspx",
+              "DocumentMoniker": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage4.aspx",
+              "RelativeDocumentMoniker": "MyFinalWork\\UserPage4.aspx",
+              "ToolTip": "D:\\WebVs\\MyFinalWork\\MyFinalWork\\UserPage4.aspx",
+              "RelativeToolTip": "MyFinalWork\\UserPage4.aspx",
+              "LogicalView": "7651a703-06e5-11d1-8ebd-00a0c90f26ea",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000195|",
+              "WhenOpened": "2024-12-06T14:40:05.704Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

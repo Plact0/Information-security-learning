@@ -1,0 +1,184 @@
+﻿* {
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    list-style: none;
+}
+
+#Label1 {
+    font-size:30px;
+    font-weight:600;
+    color:#7393b3;
+    position:relative;
+    top:20px;
+    left:200px;
+}
+
+#TextBox1 {
+    position:relative;
+    top:40px;
+    left:200px;
+    border-color:#eeeeee;
+    width:180px;
+    height:25px;
+}
+
+.SearchBtn1 {
+    position: absolute;
+    top: 130px;
+    left: 400px;
+    width:50px;
+    height: 26px;
+    background-color:#fafafa;
+    color:#6082b6;
+}
+
+.SearchBtn2 {
+    position: absolute;
+    top: 130px;
+    left: 460px;
+    width: 50px;
+    height: 26px;
+    background-color: rgb(115,147,179,0.6);
+    color: white;
+}
+
+.Lostbox1 {
+/*    background-color: lightpink;*/
+    width: 360px;
+    height: 200px;
+    position: absolute;
+    left: 200px;
+    top: 200px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+}
+
+.Lostbox2 {
+    /*    background-color: lightpink;*/
+    width: 360px;
+    height: 200px;
+    position: absolute;
+    left: 590px;
+    top: 200px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+}
+
+.Lostbox3 {
+    /*    background-color: lightpink;*/
+    width: 360px;
+    height: 200px;
+    position: absolute;
+    left: 980px;
+    top: 200px;
+    border-radius: 1cap;
+    box-shadow: 2px 2px 5px rgb(76, 75, 75, 0.3);
+}
+
+.labelName {
+    font-weight: 550;
+    font-size: larger;
+    position: absolute;
+    left: 130px;
+    top: 10px;
+    color: #6082b6;
+}
+.label0 {
+    position:absolute;
+    left:130px;
+    top:40px;
+}
+.label00 {
+    position: absolute;
+    left: 180px;
+    top: 40px;
+}
+.label1 {
+    position: absolute;
+    left: 130px;
+    top: 65px;
+}
+.label01 {
+    position: absolute;
+    left: 195px;
+    top: 65px;
+}
+.label2 {
+    position: absolute;
+    left: 130px;
+    top: 90px;
+}
+.label02 {
+    position: absolute;
+    left: 210px;
+    top: 90px;
+}
+.label3 {
+    position: absolute;
+    left: 130px;
+    top: 115px;
+}
+.label03 {
+    position: absolute;
+    left: 210px;
+    top: 115px;
+}
+.label4 {
+    position: absolute;
+    left: 130px;
+    top: 60px;
+}
+.label04 {
+    position: absolute;
+    left: 130px;
+    top: 90px;
+}
+.CallBtn {
+    width: 120px;
+    height: 30px;
+    position: absolute;
+    left: 120px;
+    top: 155px;
+    color: #6082b6;
+    background-color: rgb(182,208,226,0.8);
+}
+
+.imgbox>img {
+    width: 90px;
+    height: 120px;
+    border-radius: 1cap;
+    position: relative;
+    top: 20px;
+    left: 20px;
+}
+
+#Button5 {
+    width: 100px;
+    height: 30px;
+    position: absolute;
+    left: 1235px;
+    top: 130px;
+    color: #6082b6;
+    background-color: rgb(182,208,226,0.8);
+}
+
+.ReadBtn {
+    width: 360px;
+    height: 40px;
+    position: absolute;
+    left: 590px;
+    top: 435px;
+    color: #6082b6;
+    background-color: rgb(182,208,226,0.8);
+    font-size:18px;
+}
+
+#GridView1 {
+    position:absolute;
+    left:200px;
+    top:500px;
+    width:1150px;
+    line-height:30px;
+    text-align:center;
+}
